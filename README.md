@@ -89,6 +89,44 @@ If you'd like a single node "cluster", ie. be able to schedule pods on the contr
 
 This will untaint the control plane node so that pods can be scheduled on it.
 
+### Installing GPU operator
+```
+curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey |   sudo gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg
+sudo nvidia-ctk runtime configure --runtime=containerd
+sudo systemctl restart containerd
+
+# install helm
+curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+helm version
+helm repo add nvidia https://nvidia.github.io/gpu-operator
+helm repo update
+
+kubectl create namespace gpu-operator
+helm install gpu-operator nvidia/gpu-operator   --namespace gpu-operator   --set operator.defaultRuntime=containerd   --set driver.enabled=true   --set toolkit.enabled=true   --set devicePlugin.enabled=true   --set dcgm.enabled=true   --set dcgmExporter.enabled=true
+
+kubectl get pods -n gpu-operator
+```
+
+### Testing deploying a GPU work load
+```
+cat <<EOF | kubectl apply -f -
+  apiVersion: v1
+  kind: Pod
+  metadata:
+    name: cuda-test
+  spec:
+    restartPolicy: Never
+    containers:
+    - name: cuda-test
+      image: nvidia/cuda:12.3.0-base-ubuntu22.04
+      command: ["nvidia-smi"]
+      resources:
+        limits:
+          nvidia.com/gpu: 1
+EOF
+
+kubectl logs cuda-test
+```
 ## Thanks
 
 This is based on the [Killer.sh CKS install script](https://github.com/killer-sh/cks-course-environment).
